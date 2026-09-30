@@ -1,6 +1,7 @@
--- Local WindUI
+-- ==================== ตั้งค่าตัวแปรสำหรับ JNKIE ====================
+getgenv().script_key = getgenv().script_key or ""
 
--- ระบบดึง WindUI จาก Official Release พร้อมลิงก์สำรอง
+-- Local WindUI ดึงข้อมูล Library
 local function LoadWindUI()
     local sources = {
         "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua",
@@ -26,16 +27,13 @@ if not WindUI then
     return
 end
 
--- ==================== ตั้งค่าระบบ KEY SYSTEM & PROVIDER ====================
+-- ==================== ตั้งค่าระบบ KEY PROVIDER & JNKIE ====================
 local HttpService = game:GetService("HttpService")
 local KeyLink = "https://jnkie.com/dashboard?oauth_linked=discord&validation_error=NOT_IN_GUILD"
 
--- การตั้งค่า Key Provider
 local KeyProvider = {
-    Enabled = true, -- เปิด/ปิด ระบบดึงคีย์ออนไลน์จาก Provider
-    -- ใส่ลิงก์ RAW ที่เก็บคีย์ (เช่น RAW GitHub, Pastebin หรือ API Server)
-    RawKeyURL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/keys.json",
-    -- คีย์สำรองท้องถิ่น (ใช้งานได้แม้ดึงข้อมูลจาก Provider ไม่สำเร็จ)
+    Enabled = true,
+    RawKeyURL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/keys.json", -- ใส่ลิงก์ RAW เก็บ Key
     LocalKeys = {
         "ADMIN_KEY_1234",
         "FREE_ACCESS"
@@ -46,19 +44,16 @@ local KeyProvider = {
 local function FetchProviderKeys()
     local validKeys = {}
     
-    -- ใส่คีย์ท้องถิ่นตั้งต้น
     for _, k in ipairs(KeyProvider.LocalKeys) do
         table.insert(validKeys, k)
     end
     
-    -- ดึงคีย์จาก Provider URL
     if KeyProvider.Enabled and KeyProvider.RawKeyURL ~= "" and not KeyProvider.RawKeyURL:find("YOUR_USERNAME") then
         local success, result = pcall(function()
             return game:HttpGet(KeyProvider.RawKeyURL)
         end)
         
         if success and result then
-            -- ลองถอดรหัสรูปแบบ JSON (["KEY1", "KEY2"])
             local jsonSuccess, decoded = pcall(function()
                 return HttpService:JSONDecode(result)
             end)
@@ -68,7 +63,6 @@ local function FetchProviderKeys()
                     table.insert(validKeys, tostring(k))
                 end
             else
-                -- ถ้ารับข้อมูลเป็น Text ทีละบรรทัด
                 for line in result:gmatch("[^\r\n]+") do
                     local trimmedKey = line:match("^%s*(.-)%s*$")
                     if trimmedKey and trimmedKey ~= "" then
@@ -84,7 +78,7 @@ end
 
 local AllowedKeys = FetchProviderKeys()
 
--- สร้างหน้าต่าง UI พร้อมระบบ Key System
+-- สร้างหน้าต่าง UI พร้อมระบบ Key System และ Callback ส่งค่าไปยัง JNKIE
 local Window = Window or WindUI:CreateWindow({
     Title = "FPS FLICK AIMBOT V1",
     Icon = "crosshair",
@@ -95,9 +89,21 @@ local Window = Window or WindUI:CreateWindow({
     Theme = "Dark",
     KeySystem = {
         Key = AllowedKeys,
-        Note = "กรุณารับคีย์จากระบบ Provider หรือเว็บไซต์เพื่อใช้งานสคริปต์",
+        Note = "กรุณารับคีย์จากระบบ JNKIE เพื่อเปิดใช้งานสคริปต์",
         URL = KeyLink,
-        SaveKey = true, -- บันทึกคีย์อัตโนมัติ
+        SaveKey = true,
+        Callback = function(enteredKey)
+            -- ส่งค่า Key ที่กรอกไปยังระบบของ JNKIE
+            getgenv().script_key = enteredKey
+            
+            -- ตรวจสอบความถูกต้องของ Key
+            for _, validKey in ipairs(AllowedKeys) do
+                if enteredKey == validKey then
+                    return true
+                end
+            end
+            return false
+        end
     }
 })
 
@@ -172,11 +178,7 @@ local function IsVisible(targetPart)
     
     local raycastResult = workspace:Raycast(origin, direction, raycastParams)
     
-    if raycastResult == nil then
-        return true
-    end
-    
-    return false
+    return raycastResult == nil
 end
 
 local function GetClosestPlayerToHead()
@@ -314,7 +316,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ==================== 3. MOVEMENT (เพิ่มปุ่มเปิด-ปิด Speed Hack) ====================
+-- ==================== 3. MOVEMENT ====================
 MovementTab:Paragraph({
     Title = "ระบบควบคุมการเคลื่อนไหว",
     Desc = "ตั้งค่าความเร็วและระบบการกระโดด",
@@ -394,4 +396,3 @@ RunService.Stepped:Connect(function()
         end
     end)
 end)
-
