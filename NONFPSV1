@@ -26,12 +26,63 @@ if not WindUI then
     return
 end
 
--- ==================== ตั้งค่าระบบ KEY SYSTEM ====================
+-- ==================== ตั้งค่าระบบ KEY SYSTEM & PROVIDER ====================
+local HttpService = game:GetService("HttpService")
 local KeyLink = "https://jnkie.com/dashboard?oauth_linked=discord&validation_error=NOT_IN_GUILD"
-local AllowedKeys = {
-    "YOUR_KEY_HERE", -- แก้ไข/เพิ่ม คีย์ที่ถูกต้องตรงนี้ (ใส่ได้หลายคีย์)
-    "FREE_ACCESS"
+
+-- การตั้งค่า Key Provider
+local KeyProvider = {
+    Enabled = true, -- เปิด/ปิด ระบบดึงคีย์ออนไลน์จาก Provider
+    -- ใส่ลิงก์ RAW ที่เก็บคีย์ (เช่น RAW GitHub, Pastebin หรือ API Server)
+    RawKeyURL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/keys.json",
+    -- คีย์สำรองท้องถิ่น (ใช้งานได้แม้ดึงข้อมูลจาก Provider ไม่สำเร็จ)
+    LocalKeys = {
+        "ADMIN_KEY_1234",
+        "FREE_ACCESS"
+    }
 }
+
+-- ฟังก์ชันดึงและตรวจสอบคีย์จาก Key Provider
+local function FetchProviderKeys()
+    local validKeys = {}
+    
+    -- ใส่คีย์ท้องถิ่นตั้งต้น
+    for _, k in ipairs(KeyProvider.LocalKeys) do
+        table.insert(validKeys, k)
+    end
+    
+    -- ดึงคีย์จาก Provider URL
+    if KeyProvider.Enabled and KeyProvider.RawKeyURL ~= "" and not KeyProvider.RawKeyURL:find("YOUR_USERNAME") then
+        local success, result = pcall(function()
+            return game:HttpGet(KeyProvider.RawKeyURL)
+        end)
+        
+        if success and result then
+            -- ลองถอดรหัสรูปแบบ JSON (["KEY1", "KEY2"])
+            local jsonSuccess, decoded = pcall(function()
+                return HttpService:JSONDecode(result)
+            end)
+            
+            if jsonSuccess and type(decoded) == "table" then
+                for _, k in ipairs(decoded) do
+                    table.insert(validKeys, tostring(k))
+                end
+            else
+                -- ถ้ารับข้อมูลเป็น Text ทีละบรรทัด
+                for line in result:gmatch("[^\r\n]+") do
+                    local trimmedKey = line:match("^%s*(.-)%s*$")
+                    if trimmedKey and trimmedKey ~= "" then
+                        table.insert(validKeys, trimmedKey)
+                    end
+                end
+            end
+        end
+    end
+    
+    return validKeys
+end
+
+local AllowedKeys = FetchProviderKeys()
 
 -- สร้างหน้าต่าง UI พร้อมระบบ Key System
 local Window = Window or WindUI:CreateWindow({
@@ -44,9 +95,9 @@ local Window = Window or WindUI:CreateWindow({
     Theme = "Dark",
     KeySystem = {
         Key = AllowedKeys,
-        Note = "กรุณารับคีย์จากเว็บไซต์เพื่อเปิดใช้งานสคริปต์",
+        Note = "กรุณารับคีย์จากระบบ Provider หรือเว็บไซต์เพื่อใช้งานสคริปต์",
         URL = KeyLink,
-        SaveKey = true, -- บันทึกคีย์ลงเครื่อง เพื่อไม่ต้องกรอกใหม่ทุกครั้ง
+        SaveKey = true, -- บันทึกคีย์อัตโนมัติ
     }
 })
 
@@ -343,3 +394,4 @@ RunService.Stepped:Connect(function()
         end
     end)
 end)
+
