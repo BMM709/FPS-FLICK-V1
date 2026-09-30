@@ -26,7 +26,14 @@ if not WindUI then
     return
 end
 
--- สร้างหน้าต่าง UI
+-- ==================== ตั้งค่าระบบ KEY SYSTEM ====================
+local KeyLink = "https://jnkie.com/dashboard?oauth_linked=discord&validation_error=NOT_IN_GUILD"
+local AllowedKeys = {
+    "YOUR_KEY_HERE", -- แก้ไข/เพิ่ม คีย์ที่ถูกต้องตรงนี้ (ใส่ได้หลายคีย์)
+    "FREE_ACCESS"
+}
+
+-- สร้างหน้าต่าง UI พร้อมระบบ Key System
 local Window = Window or WindUI:CreateWindow({
     Title = "FPS FLICK AIMBOT V1",
     Icon = "crosshair",
@@ -35,6 +42,12 @@ local Window = Window or WindUI:CreateWindow({
     Size = UDim2.fromOffset(560, 400),
     Transparent = true,
     Theme = "Dark",
+    KeySystem = {
+        Key = AllowedKeys,
+        Note = "กรุณารับคีย์จากเว็บไซต์เพื่อเปิดใช้งานสคริปต์",
+        URL = KeyLink,
+        SaveKey = true, -- บันทึกคีย์ลงเครื่อง เพื่อไม่ต้องกรอกใหม่ทุกครั้ง
+    }
 })
 
 -- ==================== แยกหมวดหมู่ด้านซ้าย ====================
@@ -256,14 +269,12 @@ MovementTab:Paragraph({
     Desc = "ตั้งค่าความเร็วและระบบการกระโดด",
 })
 
--- ปุ่มเปิด-ปิด Speed Hack
 MovementTab:Toggle({
     Title = "เปิดใช้งาน Speed Hack",
     Desc = "เปิด/ปิด การใช้งานความเร็วเดินที่ตั้งไว้",
     Value = false,
     Callback = function(State)
         SpeedHackEnabled = State
-        -- ถ้าปิดการใช้งาน ให้คืนค่าความเร็วเดินกลับเป็นค่าปกติของเกม (16) ทันที
         pcall(function()
             if not State and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 LocalPlayer.Character.Humanoid.WalkSpeed = 16
@@ -305,7 +316,6 @@ MovementTab:Toggle({
     end
 })
 
--- ดักจับการกดกระโดดสำหรับ Infinite Jump
 UserInputService.JumpRequest:Connect(function()
     if InfiniteJumpEnabled then
         pcall(function()
@@ -316,13 +326,11 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- ควบคุมการอัปเดตค่าความเร็วและพลังกระโดด
 RunService.Stepped:Connect(function()
     pcall(function()
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
             local humanoid = LocalPlayer.Character.Humanoid
             
-            -- ทำงานเฉพาะตอนที่เปิดสวิตช์ Speed Hack เท่านั้น
             if SpeedHackEnabled then
                 humanoid.WalkSpeed = WalkSpeedValue
             end
