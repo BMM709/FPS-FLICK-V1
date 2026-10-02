@@ -1,7 +1,6 @@
--- ==================== ตั้งค่าตัวแปรสำหรับ JNKIE ====================
-getgenv().script_key = getgenv().script_key or ""
+-- Local WindUI
 
--- Local WindUI ดึงข้อมูล Library
+-- ระบบดึง WindUI จาก Official Release พร้อมลิงก์สำรอง
 local function LoadWindUI()
     local sources = {
         "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua",
@@ -27,84 +26,15 @@ if not WindUI then
     return
 end
 
--- ==================== ตั้งค่าระบบ KEY PROVIDER & JNKIE ====================
-local HttpService = game:GetService("HttpService")
-local KeyLink = "https://jnkie.com/dashboard?oauth_linked=discord&validation_error=NOT_IN_GUILD"
-
-local KeyProvider = {
-    Enabled = true,
-    RawKeyURL = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/keys.json", -- ใส่ลิงก์ RAW เก็บ Key
-    LocalKeys = {
-        "ADMIN_KEY_1234",
-        "FREE_ACCESS"
-    }
-}
-
--- ฟังก์ชันดึงและตรวจสอบคีย์จาก Key Provider
-local function FetchProviderKeys()
-    local validKeys = {}
-    
-    for _, k in ipairs(KeyProvider.LocalKeys) do
-        table.insert(validKeys, k)
-    end
-    
-    if KeyProvider.Enabled and KeyProvider.RawKeyURL ~= "" and not KeyProvider.RawKeyURL:find("YOUR_USERNAME") then
-        local success, result = pcall(function()
-            return game:HttpGet(KeyProvider.RawKeyURL)
-        end)
-        
-        if success and result then
-            local jsonSuccess, decoded = pcall(function()
-                return HttpService:JSONDecode(result)
-            end)
-            
-            if jsonSuccess and type(decoded) == "table" then
-                for _, k in ipairs(decoded) do
-                    table.insert(validKeys, tostring(k))
-                end
-            else
-                for line in result:gmatch("[^\r\n]+") do
-                    local trimmedKey = line:match("^%s*(.-)%s*$")
-                    if trimmedKey and trimmedKey ~= "" then
-                        table.insert(validKeys, trimmedKey)
-                    end
-                end
-            end
-        end
-    end
-    
-    return validKeys
-end
-
-local AllowedKeys = FetchProviderKeys()
-
--- สร้างหน้าต่าง UI พร้อมระบบ Key System และ Callback ส่งค่าไปยัง JNKIE
-local Window = Window or WindUI:CreateWindow({
-    Title = "FPS FLICK AIMBOT V1",
+-- สร้างหน้าต่าง UI
+local Window = WindUI:CreateWindow({
+    Title = "ABO HUB SCRIPT FPSFLICK V1",
     Icon = "crosshair",
-    Author = "WindUI",
-    Folder = "FPS_Flick_Settings",
-    Size = UDim2.fromOffset(560, 400),
+    Author = "ABO HUB",
+    Folder = "ABO_HUB_FPS_Flick_Settings",
+    Size = UDim2.fromOffset(560, 420),
     Transparent = true,
     Theme = "Dark",
-    KeySystem = {
-        Key = AllowedKeys,
-        Note = "กรุณารับคีย์จากระบบ JNKIE เพื่อเปิดใช้งานสคริปต์",
-        URL = KeyLink,
-        SaveKey = true,
-        Callback = function(enteredKey)
-            -- ส่งค่า Key ที่กรอกไปยังระบบของ JNKIE
-            getgenv().script_key = enteredKey
-            
-            -- ตรวจสอบความถูกต้องของ Key
-            for _, validKey in ipairs(AllowedKeys) do
-                if enteredKey == validKey then
-                    return true
-                end
-            end
-            return false
-        end
-    }
 })
 
 -- ==================== แยกหมวดหมู่ด้านซ้าย ====================
@@ -126,6 +56,8 @@ local MovementTab = Window:Tab({
 -- ==================== ตัวแปรสถานะ ====================
 local AimbotEnabled = false
 local WallCheckEnabled = true
+local AimValue = 1.0 -- ค่าปรับระดับ Aim (1.0 = 25/25)
+
 local EspBoxEnabled = false
 local EspLineEnabled = false
 
@@ -141,10 +73,10 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- ==================== 1. AIMBOT (ล็อกหัว + เช็คกำแพง) ====================
+-- ==================== 1. AIMBOT ====================
 AimTab:Toggle({
     Title = "เปิดใช้งาน AIMBOT (ล็อกหัว)",
-    Desc = "ล็อกเป้าหมายที่หัวอย่างแม่นยำและติดแน่น",
+    Desc = "ล็อกเป้าหมายที่หัวอย่างแม่นยำ",
     Value = false,
     Callback = function(State)
         AimbotEnabled = State
@@ -157,6 +89,21 @@ AimTab:Toggle({
     Value = true,
     Callback = function(State)
         WallCheckEnabled = State
+    end
+})
+
+-- Slider Aim ปรับระดับความไว (1 - 25)
+AimTab:Slider({
+    Title = "ความไว Aim (Aim Speed)",
+    Desc = "ปรับระดับความนุ่มนวลและความเร็วในการล็อกเป้า (1 - 25)",
+    Step = 1,
+    Value = {
+        Min = 1,
+        Max = 25,
+        Default = 25,
+    },
+    Callback = function(Value)
+        AimValue = Value / 25
     end
 })
 
@@ -212,12 +159,13 @@ RunService.RenderStepped:Connect(function()
     if AimbotEnabled then
         local targetHead = GetClosestPlayerToHead()
         if targetHead then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, AimValue)
         end
     end
 end)
 
--- ==================== 2. ESP (BOX & LINE) ====================
+-- ==================== 2. ESP ====================
 EspTab:Toggle({
     Title = "ESP Box (กล่องครอบตัว)",
     Desc = "เน้นขอบตัวผู้เล่นให้อยู่ในกล่องมองเห็นทะลุกำแพง",
@@ -339,10 +287,12 @@ MovementTab:Toggle({
 MovementTab:Slider({
     Title = "ความเร็วเดิน (Speed)",
     Desc = "ปรับแต่งความเร็ว (ค่าเริ่มต้น: 20)",
-    Min = 16,
-    Max = 150,
-    Default = 20,
-    Value = 20,
+    Step = 1,
+    Value = {
+        Min = 16,
+        Max = 150,
+        Default = 20,
+    },
     Callback = function(Value)
         WalkSpeedValue = Value
     end
@@ -351,10 +301,12 @@ MovementTab:Slider({
 MovementTab:Slider({
     Title = "Jump Power (พลังกระโดด)",
     Desc = "ปรับแต่งความสูงในการกระโดด",
-    Min = 50,
-    Max = 300,
-    Default = 50,
-    Value = 50,
+    Step = 1,
+    Value = {
+        Min = 50,
+        Max = 300,
+        Default = 50,
+    },
     Callback = function(Value)
         JumpPowerValue = Value
     end
@@ -396,3 +348,6 @@ RunService.Stepped:Connect(function()
         end
     end)
 end)
+
+-- เลือกเปิด Tab แรกอัตโนมัติ
+Window:SelectTab(1)
